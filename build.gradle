@@ -1,0 +1,127 @@
+plugins {
+    id 'net.minecraftforge.gradle.forge' version '6f5327'
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'org.spongepowered.mixin' version 'd5f9873d60'
+}
+
+version = '2.7.2'
+group = 'cheaters.get.banned'
+archivesBaseName = 'ShadyAddons'
+
+sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+minecraft {
+    version = '1.8.9-11.15.1.2318-1.8.9'
+    runDir = 'run'
+    mappings = 'stable_22'
+    makeObfSourceJar = false
+    replace '@VERSION@': project.version
+    // replace 'https://shadyaddons.com': 'http://localhost:6969'
+    clientJvmArgs += '-Dfml.coreMods.load=org.spongepowered.asm.launch.MixinTweaker'
+    clientRunArgs += '--mixin mixins.shadyaddons.json'
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.spongepowered.org/repository/maven-public/' }
+}
+
+configurations {
+    packageLib
+    configurations.implementation.extendsFrom(configurations.packageLib)
+}
+
+
+dependencies {
+    annotationProcessor('org.spongepowered:mixin:0.7.11-SNAPSHOT')
+    packageLib('org.spongepowered:mixin:0.7.11-SNAPSHOT') {
+        transitive = false
+    }
+}
+
+mixin {
+    disableRefMapWarning = true
+    defaultObfuscationEnv searge
+    add sourceSets.main, 'mixins.shadyaddons.refmap.json'
+}
+
+jar {
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest.attributes(
+            'FMLCorePluginContainsFMLMod': true,
+            'ForceLoadAsMod': true,
+            'MixinConfigs': 'mixins.shadyaddons.json',
+            'ModSide': 'CLIENT',
+            'TweakClass': 'org.spongepowered.asm.launch.MixinTweaker',
+            'TweakOrder': '0'
+    )
+
+    enabled = false
+}
+
+shadowJar {
+    archiveFileName = jar.archiveFileName
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configurations = [project.configurations.packageLib]
+
+    exclude 'LICENSE.md'
+    exclude 'LICENSE.txt'
+    exclude 'LICENSE'
+    exclude 'NOTICE'
+    exclude 'NOTICE.txt'
+    exclude 'pack.mcmeta'
+    exclude 'dummyThing'
+    exclude '**/module-info.class'
+    exclude '*.so'
+    exclude '*.dylib'
+    exclude '*.dll'
+    exclude '*.jnilib'
+    exclude 'ibxm/**'
+    exclude 'com/jcraft/**'
+    exclude 'org/lwjgl/**'
+    exclude 'net/java/**'
+
+    exclude 'META-INF/proguard/**'
+    exclude 'META-INF/maven/**'
+    exclude 'META-INF/versions/**'
+    exclude 'META-INF/com.android.tools/**'
+
+    exclude 'fabric.mod.json'
+}
+
+reobf {
+    shadowJar {
+        classpath = sourceSets.main.compileClasspath
+    }
+}
+
+processResources {
+    // this will ensure that this task is redone when the versions change.
+    inputs.property 'version', project.version
+    inputs.property 'mcversion', project.minecraft.version
+
+    // replace stuff in mcmod.info, nothing else
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+
+        // replace version and mcversion
+        expand 'version':project.version, 'mcversion':project.minecraft.version
+    }
+
+    // copy everything else, thats not the mcmod.info
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
+}
+
+sourceSets {
+    main { output.resourcesDir = java.outputDir }
+}
+
+tasks.reobfJar.dependsOn(shadowJar)
